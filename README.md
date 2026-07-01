@@ -104,7 +104,7 @@ Then the files created by Helixer will stay in this folder even after restarting
 mkdir -p data/out
 chmod o+w data/out # something the container can write to
 # mount directory and run interactively:
-docker run --gpus all -it --name helixer_testing_v0.3.6_cuda_12.2.2-cudnn8 --rm \
+docker run --gpus all -it --name helixer_testing_v0.3.7_cuda_12.2.2-cudnn8 --rm \
  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared gglyptodon/helixer-docker:latest
 ```
 
@@ -118,14 +118,14 @@ wget https://raw.githubusercontent.com/gglyptodon/helixer-docker/main/Dockerfile
 mkdir -p data/out
 chmod o+w data/out # something the container can write to
 
-docker build -t helixer_v0.3.6 --rm .
+docker build -t helixer_v0.3.7 --rm .
 ```
 
 
 - Run:
 ```
-docker run --gpus all -it --name helixer_v0.3.6 --rm \
-  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared helixer_v0.3.6:latest
+docker run --gpus all -it --name helixer_v0.3.7 --rm \
+  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared helixer_v0.3.7:latest
 ```
 
 
