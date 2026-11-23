@@ -1,13 +1,14 @@
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 RUN useradd --create-home --shell /bin/bash helixer_user
-RUN apt-get update -y
+# ca-certificates >= 20260816 drops the compromised emSign ECC Root CA - G3 (eMudhra incident, Oct 2026)
 # install wget and zip to run integration tests; nano to edit files if need be
 # install cuda-compiler-12-2 to fix issue:
 # W external/org_tensorflow/tensorflow/compiler/xla/service/gpu/llvm_gpu_backend/gpu_backend_lib.cc:559] libdevice is required by this HLO module but was not found at ./libdevice.10.bc
 # error: libdevice not found at ./libdevice.10.bc
 # installing devel image instead of runtime or  pip install tensorflow[and-cuda] fix the issue as well
 # but increase the image size by 5 to 6 Gb
-RUN apt-get install -y python3-dev \
+RUN apt-get update -y && apt-get install -y ca-certificates \
+  python3-dev \
   python3-pip \
   python3-venv \
   git \
@@ -38,14 +39,17 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # --- Helixer and HelixerPost --- #
 WORKDIR /home/helixer_user/
-# v0.3.7
+# v0.3.8
 # upgrading pip fixes bug: pyproject.toml: name, version not recognized (UNKNOWN 0.0.0) when using Ubuntu 22.04 (https://github.com/pypa/setuptools/issues/3269)
-RUN pip install --upgrade pip
-RUN git clone https://github.com/weberlab-hhu/Helixer.git Helixer && cd Helixer && git checkout tags/v0.3.7 && pip install --no-cache-dir -r /home/helixer_user/Helixer/requirements.3.10.txt && pip install --no-cache-dir .
+# pip >= 26.2.2 ships a certifi bundle without the compromised eMudhra root; installed from a hash-pinned URL
+# since the apt pip trusts that root
+RUN pip install "pip @ https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl#sha256=fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+RUN git clone https://github.com/usadellab/Helixer.git Helixer && cd Helixer && git checkout tags/v0.3.8 && pip install --no-cache-dir -r /home/helixer_user/Helixer/requirements.3.10.txt && pip install --no-cache-dir .
 
 WORKDIR /home/helixer_user/
-RUN git clone https://github.com/TonyBolger/HelixerPost.git
-RUN cd HelixerPost && git checkout 4d4799bac4c05e574ae628040c5cb58eb4aa18fe
+# v0.4.0
+RUN git clone https://github.com/usadellab/HelixerPost.git
+RUN cd HelixerPost && git checkout tags/v0.4.0
 RUN mkdir bin
 ENV PATH="/home/helixer_user/bin:${PATH}"
 RUN cd HelixerPost/helixer_post_bin && cargo build --release

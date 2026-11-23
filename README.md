@@ -2,9 +2,17 @@
 
 # Helixer-Docker
 
-This repository accompanies https://github.com/weberlab-hhu/Helixer.
+This repository accompanies https://github.com/usadellab/Helixer.
 The aim is to provide a mostly hassle-free way to use Helixer via Docker (or Apptainer/Singularity).
-For more information on how to run Helixer, please refer to its [documentation](https://github.com/weberlab-hhu/Helixer).
+For more information on how to run Helixer, please refer to its [documentation](https://github.com/usadellab/Helixer).
+
+> **Security note (October 2026):** Images older than `helixer_v0.3.8`, including any `latest` pulled before
+> the v0.3.8 release, still trust the compromised eMudhra emSign ECC Root CA - G3, both in their system CA store
+> and in their Python `certifi` bundle (see the
+> [Python advisory](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576)).
+> HTTPS connections made from inside these images could be intercepted, so do not use them to download models
+> (`fetch_helixer_models.py`) or to install packages with pip. Running Helixer on local data is not affected.
+> Use `helixer_v0.3.8` or newer, or download the models outside the container and bind-mount them.
 
 ## License and notices
 This image is derived from NVIDIA CUDA containers and includes additional software with primary functionality beyond the base
@@ -104,7 +112,7 @@ Then the files created by Helixer will stay in this folder even after restarting
 mkdir -p data/out
 chmod o+w data/out # something the container can write to
 # mount directory and run interactively:
-docker run --gpus all -it --name helixer_testing_v0.3.7_cuda_12.2.2-cudnn8 --rm \
+docker run --gpus all -it --name helixer_testing_v0.3.8_cuda_12.2.2-cudnn8 --rm \
  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared gglyptodon/helixer-docker:latest
 ```
 
@@ -118,14 +126,14 @@ wget https://raw.githubusercontent.com/gglyptodon/helixer-docker/main/Dockerfile
 mkdir -p data/out
 chmod o+w data/out # something the container can write to
 
-docker build -t helixer_v0.3.7 --rm .
+docker build -t helixer_v0.3.8 --rm .
 ```
 
 
 - Run:
 ```
-docker run --gpus all -it --name helixer_v0.3.7 --rm \
-  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared helixer_v0.3.7:latest
+docker run --gpus all -it --name helixer_v0.3.8 --rm \
+  --mount type=bind,source="$(pwd)"/data,target=/home/helixer_user/shared helixer_v0.3.8:latest
 ```
 
 
@@ -193,10 +201,15 @@ $ sudo add-apt-repository -y ppa:apptainer/ppa
 $ sudo apt update
 $ sudo apt install -y apptainer-suid
 ```
-On Ubuntu 23.10+ you likely also need to execute this command
-(see  https://github.com/apptainer/apptainer/blob/release-1.3/INSTALL.md#apparmor-profile-ubuntu-2310
-for more information) unless you install Apptainer using the `.deb` package
-from a GitHub release(https://github.com/apptainer/apptainer/releases):
+On Ubuntu 23.10+, Apptainer needs an AppArmor profile to create user namespaces
+without root. The Debian/Ubuntu packages (from the PPA above or a
+[GitHub release](https://github.com/apptainer/apptainer/releases)) ship this
+profile as `/etc/apparmor.d/apptainer` since Apptainer v1.3.4 (since v1.5.4 it
+also covers rootless image builds), so with these the command below is not
+needed. For older versions or other installations, e.g. under `/usr/local`,
+execute this command (see
+https://github.com/apptainer/apptainer/blob/release-1.3/INSTALL.md#apparmor-profile-ubuntu-2310
+for more information):
 ```
 sudo tee /etc/apparmor.d/apptainer << 'EOF'
 # Permit unprivileged user namespace creation for apptainer starter
@@ -252,67 +265,13 @@ apptainer run --nv helixer-docker_latest.sif Helixer.py \
 If you already have Singularity available, skip to section
 [Running via Singularity](#running-via-singularity-).
 
-For Singularity install, see also: 
-https://github.com/sylabs/singularity/blob/master/INSTALL.md
-or https://docs.sylabs.io/guides/3.0/user-guide/installation.html
-
-Install go:
-```
-export VERSION=1.18.1 OS=linux ARCH=amd64  # change this as you need
-
-wget -O /tmp/go${VERSION}.${OS}-${ARCH}.tar.gz \
-  https://dl.google.com/go/go${VERSION}.${OS}-${ARCH}.tar.gz
-sudo tar -C /usr/local -xzf /tmp/go${VERSION}.${OS}-${ARCH}.tar.gz
-
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Clone syslabs' singularity repo and install: 
-```
-mkdir  -p github.com/syslabs/
-cd github.com/syslabs
-git clone --recurse-submodules https://github.com/sylabs/singularity.git
-cd singularity/
-# use the version you prefer here:
-git checkout --recurse-submodules v3.9.9
-
-./mconfig
-make -C builddir
-sudo make -C builddir install
-
-```
-On Ubuntu 23.10+ you likely also need to execute this command
-(see  https://github.com/sylabs/singularity/blob/main/INSTALL.md#apparmor-profile-ubuntu-2404
-for more information) unless you install Singularity using the `.deb` package
-from a GitHub release(https://github.com/sylabs/singularity/releases):
-```
-sudo tee /etc/apparmor.d/singularity-ce << 'EOF'
-# Permit unprivileged user namespace creation for SingularityCE starter
-abi <abi/4.0>,
-include <tunables/global>
-
-profile singularity-ce /usr/local/libexec/singularity/bin/starter{,-suid} flags=(unconfined) {
-  userns,
-
-  # Site-specific additions and overrides. See local/README for details.
-  include if exists <local/singularity-ce>
-}
-EOF
-```
-Hint: You may need to remove the 'local' in the path to Singularity. If you
-are unsure where your Singularity installation is located, use 
-`whereis singularity`.
-
-Reload the system apparmor profiles after you have created the file:
-```
-sudo systemctl reload apparmor
-```
-If all went well, you should be able to see a version number:
-```
-singularity --version
-# -->  singularity-ce version 3.9.9
-```
+Apptainer is recommended for new installations (see
+[Installing Apptainer](#installing-apptainer-)). For SingularityCE, install a
+`.deb` package from its [GitHub releases](https://github.com/sylabs/singularity/releases);
+from v4.1.3 on it includes the AppArmor profile Ubuntu 23.10+ needs to create
+user namespaces without root. For a source installation, follow the upstream
+[INSTALL.md](https://github.com/sylabs/singularity/blob/main/INSTALL.md),
+including its AppArmor profile step.
 
 ### Running via Singularity ###
 Running Helixer via Singularity was tested for the following versions recently:
